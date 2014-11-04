@@ -1,4 +1,4 @@
-springCMS
+data bind
 =========
 
-A simple CMS dashboard using Spring
+data bind
