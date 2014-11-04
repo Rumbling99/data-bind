@@ -1,0 +1,23 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+    
+</head>
+
+<body>
+    <div id="dialog">
+        <label>名称：</label><input type="text" data-bind="name"><br /><br />
+        <label>电话：</label><input type="text" data-bind="phone"><br /><br />
+        <label>介绍：</label><textarea data-bind="desc"></textarea><br /><br />
+        <label>性别：</label>
+        <input type="radio" name="sex" data-bind="sex" value="male">男
+        <input type="radio" name="sex" data-bind="sex" value="female">女<br /><br />
+        <label>记住：</label>
+        <input type="checkbox" name="role" data-bind="role" value="admin">管理员
+        <input type="checkbox" name="role" data-bind="role" value="user">用户<br /><br />
+    </div>
+</body>
+
+<script type="text/javascript" src="dataBind.js"></script>
+</html>
