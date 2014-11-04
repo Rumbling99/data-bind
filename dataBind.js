@@ -1,41 +1,24 @@
 var Entity = function(eventManager, bindEvent) {
-    return function(data, option) {
-        //TODO: check data is object
-        //TODO: check option is valid
+    /**
+     * two-way bind on elements that has same bindName([bindName='xxxx'])
+     */
+    var bindMulti = function(proxy, elements, key, objectNamePrefix) {
+        for (var i = 0, length = elements.length; i < length; i++) {
+            var element = elements[i];
+            var name = void 0;
+            if (element.name == name) {
 
-        //TODO: make a clone of data
-        option = option || {};
-        option.updateOnCreate = option.updateOnCreate !== false;
-        var containerId = option.containerId || 'document';
-        var namePrefix = option.namePrefix || '';
-        var objectNamePrefix = containerId + '_' + namePrefix + '_';
-        var container = containerId == 'document' ? document : document.getElementById(containerId);
-
-        var proxy = {};
-
-        for (var key in data) {
-            if (!data.hasOwnProperty(key)) {
-                continue;
             }
-            (function(proxy, key) {
-                Object.defineProperty(proxy, key, {
-                    get: function() {
-                        return data[key];
-                    },
-                    set: function(value) {
-                        data[key] = value;
-                        eventManager.trigger(objectNamePrefix + key, 'change');
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-
-                var bindName = namePrefix + key;
-                var element = container.querySelector("[data-bind='" + bindName + "']");
-                if (element == null) {
-                    throw new Error("element [data-bind='" + bindName + "'] can not be found");
-                    return;
-                }
+        }
+    };
+    /**
+     * two-way bind on a single element(input-text, textarea, select...) 
+     * or on elements that has same name(input-radio, input-checkbox...)
+     */
+    var bindGroup = function(proxy, elements, key, objectNamePrefix) {
+        for (var i = 0, length = elements.length; i < length; i++) {
+            var element = elements[i];
+            (function(element) {
                 switch (element.tagName.toLowerCase()) {
                 default:
                     throw new Error("data bind on " + element.tagName + " is not supported");
@@ -46,8 +29,17 @@ var Entity = function(eventManager, bindEvent) {
                             throw new Error("data bind on input-" + element.type + " is not supported");
                             break;
                         case 'text':
+                            eventManager.attach(objectNamePrefix + key, 'change', function() {
+
+                                element.value = proxy[key];
+                            });
+                            bindEvent(element, 'keyup', function() {
+                                proxy[key] = element.value;
+                            });
+                            break;
                         case 'select':
                             eventManager.attach(objectNamePrefix + key, 'change', function() {
+
                                 element.value = proxy[key];
                             });
                             bindEvent(element, 'change', function() {
@@ -55,14 +47,6 @@ var Entity = function(eventManager, bindEvent) {
                             });
                             break;
                         case 'checkbox':
-
-                            // eventManager.attach(objectNamePrefix + key, 'change', function() {
-                            //     element.value = proxy[key];
-                            // });
-                            // bindEvent(element, 'change', function() {
-                            //     proxy[key] = element.value;
-                            // });
-                            // break;
                         case 'radio':
                             break;
                     }
@@ -76,7 +60,48 @@ var Entity = function(eventManager, bindEvent) {
                     });
                     break;
                 }
+            })(elements[i]);
+        }
+    };
 
+
+    return function(sourceData, option) {
+        //TODO: check sourceData is object
+        //TODO: check option is valid
+
+        option = option || {};
+        option.updateOnCreate = option.updateOnCreate !== false;
+        var containerId = option.containerId || 'document';
+        var namePrefix = option.namePrefix || '';
+        var objectNamePrefix = containerId + '_' + namePrefix + '_';
+        var container = containerId == 'document' ? document : document.getElementById(containerId);
+
+        var proxy = {};
+
+        for (var key in sourceData) {
+            if (!sourceData.hasOwnProperty(key)) {
+                continue;
+            }
+            (function(proxy, key) {
+                Object.defineProperty(proxy, key, {
+                    get: function() {
+                        return sourceData[key];
+                    },
+                    set: function(value) {
+                        sourceData[key] = value;
+                        eventManager.trigger(objectNamePrefix + key, 'change');
+                    },
+                    enumerable: true,
+                    configurable: true
+                });
+
+                var bindName = namePrefix + key;
+                var elements = container.querySelectorAll("[data-bind='" + bindName + "']");
+                if (elements.length == 0) {
+                    throw new Error("element [data-bind='" + bindName + "'] can not be found");
+                    return;
+                }
+                bindMulti(proxy, elements, key, objectNamePrefix);
                 if (option.updateOnCreate) {
                     eventManager.trigger(objectNamePrefix + key, 'change');
                 }
@@ -84,8 +109,7 @@ var Entity = function(eventManager, bindEvent) {
         }
 
         proxy.toPlainObject = function() {
-            //TODO: make a clone of data
-            return data;
+            return sourceData;
         };
         proxy.update = function(newData) {
         };
