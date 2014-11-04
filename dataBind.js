@@ -1,14 +1,27 @@
 var Entity = function(eventManager, bindEvent) {
     /**
      * two-way bind on elements that has same bindName([bindName='xxxx'])
+     * group elements by tagName, type, name and then pass them to bindGroup()
      */
     var bindMulti = function(proxy, elements, key, objectNamePrefix) {
+        var groupMap = {};
         for (var i = 0, length = elements.length; i < length; i++) {
             var element = elements[i];
-            var name = void 0;
-            if (element.name == name) {
-
+            var tagName = element.tagName;
+            var type = element.type || '';
+            var name = element.name || '';
+            var groupKey = tagName + '_' + type + '_' + name;
+            if (!groupMap.hasOwnProperty(groupKey)) {
+                groupMap[groupKey] = [];
             }
+            groupMap[groupKey].push(element);
+        }
+        // console.log(groupMap);
+        for (var groupKey in groupMap) {
+            if (!groupMap.hasOwnProperty(groupKey)) {
+                continue;
+            }
+            bindGroup(proxy, groupMap[groupKey], key, objectNamePrefix);
         }
     };
     /**
@@ -30,7 +43,6 @@ var Entity = function(eventManager, bindEvent) {
                             break;
                         case 'text':
                             eventManager.attach(objectNamePrefix + key, 'change', function() {
-
                                 element.value = proxy[key];
                             });
                             bindEvent(element, 'keyup', function() {
@@ -39,9 +51,9 @@ var Entity = function(eventManager, bindEvent) {
                             break;
                         case 'select':
                             eventManager.attach(objectNamePrefix + key, 'change', function() {
-
                                 element.value = proxy[key];
                             });
+                            // test how many times
                             bindEvent(element, 'change', function() {
                                 proxy[key] = element.value;
                             });
@@ -55,7 +67,7 @@ var Entity = function(eventManager, bindEvent) {
                     eventManager.attach(objectNamePrefix + key, 'change', function() {
                         element.value = proxy[key];
                     });
-                    bindEvent(element, 'change', function() {
+                    bindEvent(element, 'keyup', function() {
                         proxy[key] = element.value;
                     });
                     break;
