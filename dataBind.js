@@ -1,9 +1,9 @@
 var Entity = function(eventManager, bindEvent) {
     /**
-     * two-way bind on elements that has same bindName([bindName='xxxx'])
+     * two-way bind on elements that has same bindName([data-bind='bindName'])
      * group elements by tagName, type, name and then pass them to bindGroup()
      */
-    var bindMulti = function(proxy, elements, key, objectNamePrefix) {
+    var bindMulti = function(proxy, key, scope, elements, objectNamePrefix) {
         var groupMap = {};
         for (var i = 0, length = elements.length; i < length; i++) {
             var element = elements[i];
@@ -16,21 +16,20 @@ var Entity = function(eventManager, bindEvent) {
             }
             groupMap[groupKey].push(element);
         }
-        // console.log(groupMap);
         for (var groupKey in groupMap) {
             if (!groupMap.hasOwnProperty(groupKey)) {
                 continue;
             }
-            bindGroup(proxy, groupMap[groupKey], key, objectNamePrefix);
+            bindGroup(proxy, key, scope, groupMap[groupKey], objectNamePrefix);
         }
     };
     /**
-     * two-way bind on a single element(input-text, textarea, select...) 
-     * or on elements that has same name(input-radio, input-checkbox...)
+     * two-way bind on non-group elements(input-text, textarea, select ...) 
+     * or on a group of elements that has same name(input-radio ...)
      */
-    var bindGroup = function(proxy, elements, key, objectNamePrefix) {
-        for (var i = 0, length = elements.length; i < length; i++) {
-            var element = elements[i];
+    var bindGroup = function(proxy, key, scope, elements, objectNamePrefix) {
+        var radioGroup;
+        for (var i = 0, elementLength = elements.length; i < elementLength; i++) {
             (function(element) {
                 switch (element.tagName.toLowerCase()) {
                 default:
@@ -38,29 +37,56 @@ var Entity = function(eventManager, bindEvent) {
                     break;
                 case 'input':
                     switch (element.type) {
-                        default:
-                            throw new Error("data bind on input-" + element.type + " is not supported");
-                            break;
-                        case 'text':
+                    default:
+                        throw new Error("data bind on input-" + element.type + " is not supported");
+                        break;
+                    case 'text':
+                        eventManager.attach(objectNamePrefix + key, 'change', function() {
+                            element.value = proxy[key];
+                        });
+                        bindEvent(element, 'keyup', function() {
+                            proxy[key] = element.value;
+                        });
+                        break;
+                    case 'checkbox':
+                        eventManager.attach(objectNamePrefix + key, 'change', function() {
+                            element.checked = proxy[key];
+                        });
+                        bindEvent(element, 'change', function() {
+                            proxy[key] = element.checked;
+                        });
+                        break;
+                    case 'radio':
+                        /**
+                         * only bind once on entity
+                         */
+                        if (!radioGroup) {
+                            radioGroup = radioGroup || 
+                                scope.querySelectorAll("[name='" 
+                                + element.name + "'][data-bind='" 
+                                + element.getAttribute('data-bind') + "']");
                             eventManager.attach(objectNamePrefix + key, 'change', function() {
-                                element.value = proxy[key];
+                                for (var j = 0, groupLength = radioGroup.length; j < groupLength; j++) {
+                                    if (proxy[key] === radioGroup[j].value) {
+                                        radioGroup[j].checked = true
+                                        break;
+                                    }
+                                }
                             });
-                            bindEvent(element, 'keyup', function() {
-                                proxy[key] = element.value;
-                            });
-                            break;
-                        case 'select':
-                            eventManager.attach(objectNamePrefix + key, 'change', function() {
-                                element.value = proxy[key];
-                            });
-                            // test how many times
-                            bindEvent(element, 'change', function() {
-                                proxy[key] = element.value;
-                            });
-                            break;
-                        case 'checkbox':
-                        case 'radio':
-                            break;
+                        }
+                        /**
+                         * bind on each radio
+                         */
+                        bindEvent(element, 'change', function() {
+                            var value = '';
+                            for (var j = 0, groupLength = radioGroup.length; j < groupLength; j++) {
+                                if (radioGroup[j].checked == true) {
+                                    proxy[key] = radioGroup[j].value;
+                                    break;
+                                }
+                            }
+                        });
+                        break;
                     }
                     break;
                 case 'textarea':
@@ -71,11 +97,20 @@ var Entity = function(eventManager, bindEvent) {
                         proxy[key] = element.value;
                     });
                     break;
+                case 'select':
+                    eventManager.attach(objectNamePrefix + key, 'change', function() {
+                        element.value = proxy[key];
+                    });
+                    bindEvent(element, 'change', function() {
+                        proxy[key] = element.value;
+                    });
+                    break;
+                case 'span':
+                    break;
                 }
             })(elements[i]);
         }
     };
-
 
     return function(sourceData, option) {
         //TODO: check sourceData is object
@@ -83,10 +118,19 @@ var Entity = function(eventManager, bindEvent) {
 
         option = option || {};
         option.updateOnCreate = option.updateOnCreate !== false;
-        var containerId = option.containerId || 'document';
+        var scopeName = option.scope || 'document';
         var namePrefix = option.namePrefix || '';
-        var objectNamePrefix = containerId + '_' + namePrefix + '_';
-        var container = containerId == 'document' ? document : document.getElementById(containerId);
+        var objectNamePrefix = scopeName + '_' + namePrefix + '_';
+        var scope;
+        if (scopeName == 'document') {
+            scope = window.document;   
+        } else {
+            scope = window.document.querySelector("[data-scope='" + scopeName + "']");
+            if (!scope) {
+                throw new Error("scope [data-scope='" + scopeName + "'] can not be found");
+                return;
+            }
+        }
 
         var proxy = {};
 
@@ -108,12 +152,12 @@ var Entity = function(eventManager, bindEvent) {
                 });
 
                 var bindName = namePrefix + key;
-                var elements = container.querySelectorAll("[data-bind='" + bindName + "']");
+                var elements = scope.querySelectorAll("[data-bind='" + bindName + "']");
                 if (elements.length == 0) {
                     throw new Error("element [data-bind='" + bindName + "'] can not be found");
                     return;
                 }
-                bindMulti(proxy, elements, key, objectNamePrefix);
+                bindMulti(proxy, key, scope, elements, objectNamePrefix);
                 if (option.updateOnCreate) {
                     eventManager.trigger(objectNamePrefix + key, 'change');
                 }
@@ -170,19 +214,3 @@ function(element, event, handler) {
 }
 );
 
-
-var i = {
-    name: 'Quan Li', 
-    phone: 13302125541, 
-    desc: 'a programmer', 
-    sex: 'male', 
-    role: 'admin'
-};
-var iEnt = new Entity(i, {
-});
-
-// i.name = 3;
-
-
-iEnt.name = 'c';
-// iEnt.phone = 18052569961;

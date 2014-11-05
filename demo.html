@@ -1,0 +1,52 @@
+<!DOCTYPE HTML>
+<html>
+
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+</head>
+
+<body>
+    <div data-scope="dialog">
+        <label>名称：</label><input type="text" data-bind="name"><br /><br />
+        <label>名称：</label><input type="text" data-bind="name"><br /><br />
+        <label>角色：</label>
+        <select data-bind="role">
+            <option value='admin'>管理员</option>
+            <option value='user'>普通用户</option>
+        </select><br /><br />
+        <label>角色：</label>
+        <select data-bind="role">
+            <option value='admin'>管理员</option>
+            <option value='user'>普通用户</option>
+        </select><br /><br />
+        <label>介绍：</label><textarea data-bind="desc"></textarea><br /><br />
+        <label>介绍：</label><textarea data-bind="desc"></textarea><br /><br />
+        <label>性别：</label>
+        <input type="radio" name="sex1" data-bind="sex" value="male">男
+        <input type="radio" name="sex1" data-bind="sex" value="female">女<br /><br />
+        <label>性别：</label>
+        <input type="radio" name="sex2" data-bind="sex" value="male">男
+        <input type="radio" name="sex2" data-bind="sex" value="female">女<br /><br />
+        <label>记住：</label>
+        <input type="checkbox" data-bind="remember"><br /><br />
+        <label>记住：</label>
+        <input type="checkbox" data-bind="remember"><br /><br />
+    </div>
+</body>
+
+<script type="text/javascript" src="dataBind.js"></script>
+<script type="text/javascript">
+    var i = {
+        name: 'Quan', 
+        role: 'user', 
+        desc: 'a programmer', 
+        sex: 'male', 
+        remember: true
+    };
+    var ientity = new Entity(i, {
+        scope: 'dialog'
+    });
+
+    ientity.name = 'Quan Li';
+</script>
+</html>
