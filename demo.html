@@ -7,6 +7,7 @@
 
 <body>
     <div data-scope="dialog">
+        <span data-bind="name"></span><br /><br />
         <label>名称：</label><input type="text" data-bind="name"><br /><br />
         <label>名称：</label><input type="text" data-bind="name"><br /><br />
         <label>角色：</label>
@@ -43,9 +44,21 @@
         sex: 'male', 
         remember: true
     };
-    var ientity = new Entity(i, {
-        scope: 'dialog'
+
+    // var ientity = new Entity(i, {
+    //     scope: 'dialog'
+    // });
+
+    var CustomEntity = Entity.extendBindStrategy({
+        'span': function(eventManager, bindEvent, proxy, key, objectNamePrefix) {
+            var element = this;
+            eventManager.attach(objectNamePrefix + key, 'change', function() {
+                element.innerHTML = proxy[key];
+            });
+        }
     });
+
+    var ientity = new CustomEntity(i);
 
     ientity.name = 'Quan Li';
 </script>

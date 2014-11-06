@@ -28,91 +28,102 @@ var Entity = function(eventManager, bindEvent) {
      * or on a group of elements that has same name(input-radio ...)
      */
     var bindGroup = function(proxy, key, scope, elements, objectNamePrefix) {
-        var radioGroup;
+        var elementGroup;
         for (var i = 0, elementLength = elements.length; i < elementLength; i++) {
             (function(element) {
-                switch (element.tagName.toLowerCase()) {
-                default:
-                    throw new Error("data bind on " + element.tagName + " is not supported");
-                    break;
-                case 'input':
-                    switch (element.type) {
-                    default:
-                        throw new Error("data bind on input-" + element.type + " is not supported");
-                        break;
-                    case 'text':
-                        eventManager.attach(objectNamePrefix + key, 'change', function() {
-                            element.value = proxy[key];
-                        });
-                        bindEvent(element, 'keyup', function() {
-                            proxy[key] = element.value;
-                        });
-                        break;
-                    case 'checkbox':
-                        eventManager.attach(objectNamePrefix + key, 'change', function() {
-                            element.checked = proxy[key];
-                        });
-                        bindEvent(element, 'change', function() {
-                            proxy[key] = element.checked;
-                        });
-                        break;
-                    case 'radio':
-                        /**
-                         * only bind once on entity
-                         */
-                        if (!radioGroup) {
-                            radioGroup = radioGroup || 
-                                scope.querySelectorAll("[name='" 
-                                + element.name + "'][data-bind='" 
-                                + element.getAttribute('data-bind') + "']");
-                            eventManager.attach(objectNamePrefix + key, 'change', function() {
-                                for (var j = 0, groupLength = radioGroup.length; j < groupLength; j++) {
-                                    if (proxy[key] === radioGroup[j].value) {
-                                        radioGroup[j].checked = true
-                                        break;
-                                    }
-                                }
-                            });
+                var tagName = element.tagName.toLowerCase();
+                var type = element.type;
+                if (bindStrategy.hasOwnProperty(tagName)) {
+                    if (typeof bindStrategy[tagName] === 'function') {
+                        bindStrategy[tagName].call(element, eventManager, bindEvent, proxy, key, objectNamePrefix, scope, elementGroup);
+                    } else {
+                        if (bindStrategy[tagName].hasOwnProperty(type)) {
+                            bindStrategy[tagName][type].call(element, eventManager, bindEvent, proxy, key, objectNamePrefix, scope, elementGroup);
+                        } else {
+                            throw new Error("data bind on input-" + element.type + " is not supported");
                         }
-                        /**
-                         * bind on each radio
-                         */
-                        bindEvent(element, 'change', function() {
-                            var value = '';
-                            for (var j = 0, groupLength = radioGroup.length; j < groupLength; j++) {
-                                if (radioGroup[j].checked == true) {
-                                    proxy[key] = radioGroup[j].value;
-                                    break;
-                                }
-                            }
-                        });
-                        break;
                     }
-                    break;
-                case 'textarea':
-                    eventManager.attach(objectNamePrefix + key, 'change', function() {
-                        element.value = proxy[key];
-                    });
-                    bindEvent(element, 'keyup', function() {
-                        proxy[key] = element.value;
-                    });
-                    break;
-                case 'select':
-                    eventManager.attach(objectNamePrefix + key, 'change', function() {
-                        element.value = proxy[key];
-                    });
-                    bindEvent(element, 'change', function() {
-                        proxy[key] = element.value;
-                    });
-                    break;
-                case 'span':
-                    break;
+                } else {
+                    throw new Error("data bind on " + element.tagName + " is not supported");
                 }
             })(elements[i]);
         }
     };
 
-    return function(sourceData, option) {
+    var bindStrategy = {
+        'textarea': function(eventManager, bindEvent, proxy, key, objectNamePrefix) {
+            var element = this;
+            eventManager.attach(objectNamePrefix + key, 'change', function() {
+                element.value = proxy[key];
+            });
+            bindEvent(element, 'keyup', function() {
+                proxy[key] = element.value;
+            });
+        },
+        'select': function(eventManager, bindEvent, proxy, key, objectNamePrefix) {
+            var element = this;
+            eventManager.attach(objectNamePrefix + key, 'change', function() {
+                element.value = proxy[key];
+            });
+            bindEvent(element, 'change', function() {
+                proxy[key] = element.value;
+            });
+        },
+        'input': {
+            'text': function(eventManager, bindEvent, proxy, key, objectNamePrefix) {
+            var element = this;
+                eventManager.attach(objectNamePrefix + key, 'change', function() {
+                    element.value = proxy[key];
+                });
+                bindEvent(element, 'keyup', function() {
+                    proxy[key] = element.value;
+                });
+            },
+            'checkbox': function(eventManager, bindEvent, proxy, key, objectNamePrefix) {
+            var element = this;
+                eventManager.attach(objectNamePrefix + key, 'change', function() {
+                    element.checked = proxy[key];
+                });
+                bindEvent(element, 'change', function() {
+                    proxy[key] = element.checked;
+                });
+            },
+            'radio': function(eventManager, bindEvent, proxy, key, objectNamePrefix, scope, elementGroup) {
+                var element = this;
+                /**
+                 * only bind once on entity
+                 */
+                if (!elementGroup) {
+                    elementGroup = elementGroup || 
+                        scope.querySelectorAll("[name='" 
+                        + element.name + "'][data-bind='" 
+                        + element.getAttribute('data-bind') + "']");
+                    eventManager.attach(objectNamePrefix + key, 'change', function() {
+                        for (var j = 0, groupLength = elementGroup.length; j < groupLength; j++) {
+                            if (proxy[key] === elementGroup[j].value) {
+                                elementGroup[j].checked = true
+                                break;
+                            }
+                        }
+                    });
+                }
+                /**
+                 * bind on each radio
+                 */
+                bindEvent(element, 'change', function() {
+                    var value = '';
+                    for (var j = 0, groupLength = elementGroup.length; j < groupLength; j++) {
+                        if (elementGroup[j].checked == true) {
+                            proxy[key] = elementGroup[j].value;
+                            break;
+                        }
+                    }
+                });
+            }
+        }
+    };
+
+    var defaultEntity = function(sourceData, option) {
         //TODO: check sourceData is object
         //TODO: check option is valid
 
@@ -172,6 +183,35 @@ var Entity = function(eventManager, bindEvent) {
 
         return proxy;
     };
+
+    defaultEntity.extendBindStrategy = function(customBindStrategy) {
+        for (var tagName in customBindStrategy) {
+            if (!customBindStrategy.hasOwnProperty(tagName)) {
+                continue;
+            }
+            if (typeof customBindStrategy[tagName] === 'function') {
+                if (bindStrategy[tagName]) {
+                    throw new Error("bind strategy on " + tagName + " already exists");
+                }
+                bindStrategy[tagName] = customBindStrategy[tagName];
+            }
+            if (typeof customBindStrategy[tagName] === 'object') {
+                bindStrategy[tagName] = bindStrategy[tagName] || {};
+                for (var type in customBindStrategy[tagName]) {
+                    if (!customBindStrategy[tagName].hasOwnProperty(type)) {
+                        continue;
+                    }
+                    if (bindStrategy[tagName][type]) {
+                        throw new Error("bind strategy on " + tagName + "-" + type + " already exists");
+                    }
+                    bindStrategy[tagName][type] = customBindStrategy[tagName][type];
+                }
+            }
+        }
+        return defaultEntity;
+    };
+
+    return defaultEntity;
 }(
 /**
  * dependency: EventManager
