@@ -1,4 +1,4 @@
-var Entity = function(eventManager, bindEvent) {
+var Entity = function(eventManager, bindEvent, extend) {
     /**
      * two-way bind on elements that has same bindName([data-bind='bindName'])
      * group elements by tagName, type, name and then pass them to bindGroup()
@@ -243,14 +243,30 @@ function() {
     return eventManager;
 }(),
 /**
- * dependency: bindEvent(html) function
+ * dependency: bindEvent() function(html)
  */
 function(element, event, handler) {
     if (element.addEventListener) {
         element.addEventListener(event, handler, false);
-    }   else {
+    } else {
         element.attachEvent('on' + event, handler);
     }
+},
+/**
+ * dependency: extend() function
+ */
+function(target) {
+    if (!!target && typeof target !== 'object') {
+        return target;
+    }
+    var source, key;
+    for (var i = 1, length = arguments.length; i < length; i++) {
+        source = arguments[i];
+        for (key in source) {
+            target[key] = source[key];
+        }
+    }
+    return target;
 }
 );
 
