@@ -3,7 +3,7 @@ var Entity = function(eventManager, bindEvent, extend) {
      * two-way bind on elements that has same bindName([data-bind='bindName'])
      * group elements by tagName, type, name and then pass them to bindGroup()
      */
-    var bindMulti = function(proxy, key, scope, elements, objectNamePrefix) {
+    var bindMulti = function(strategy, proxy, key, scope, elements, objectNamePrefix) {
         var groupMap = {};
         for (var i = 0, length = elements.length; i < length; i++) {
             var element = elements[i];
@@ -20,15 +20,16 @@ var Entity = function(eventManager, bindEvent, extend) {
             if (!groupMap.hasOwnProperty(groupKey)) {
                 continue;
             }
-            bindGroup(proxy, key, scope, groupMap[groupKey], objectNamePrefix);
+            bindGroup(strategy, proxy, key, scope, groupMap[groupKey], objectNamePrefix);
         }
     };
     /**
      * two-way bind on non-group elements(input-text, textarea, select ...) 
      * or on a group of elements that has same name(input-radio ...)
      */
-    var bindGroup = function(proxy, key, scope, elements, objectNamePrefix) {
+    var bindGroup = function(strategy, proxy, key, scope, elements, objectNamePrefix) {
         var elementGroup;
+        var bindStrategy = strategy;
         for (var i = 0, elementLength = elements.length; i < elementLength; i++) {
             (function(element) {
                 var tagName = element.tagName.toLowerCase();
@@ -123,92 +124,98 @@ var Entity = function(eventManager, bindEvent, extend) {
         }
     };
 
-    var defaultEntity = function(sourceData, option) {
-        //TODO: check sourceData is object
-        //TODO: check option is valid
+    var factory = function(strategy) {
+        var Entity = function(sourceData, option) {
+            //TODO: check sourceData is object
+            //TODO: check option is valid
 
-        option = option || {};
-        option.updateOnCreate = option.updateOnCreate !== false;
-        var scopeName = option.scope || 'document';
-        var namePrefix = option.namePrefix || '';
-        var objectNamePrefix = scopeName + '_' + namePrefix + '_';
-        var scope;
-        if (scopeName == 'document') {
-            scope = window.document;   
-        } else {
-            scope = window.document.querySelector("[data-scope='" + scopeName + "']");
-            if (!scope) {
-                throw new Error("scope [data-scope='" + scopeName + "'] can not be found");
-                return;
-            }
-        }
-
-        var proxy = {};
-
-        for (var key in sourceData) {
-            if (!sourceData.hasOwnProperty(key)) {
-                continue;
-            }
-            (function(proxy, key) {
-                Object.defineProperty(proxy, key, {
-                    get: function() {
-                        return sourceData[key];
-                    },
-                    set: function(value) {
-                        sourceData[key] = value;
-                        eventManager.trigger(objectNamePrefix + key, 'change');
-                    },
-                    enumerable: true,
-                    configurable: true
-                });
-
-                var bindName = namePrefix + key;
-                var elements = scope.querySelectorAll("[data-bind='" + bindName + "']");
-                if (elements.length == 0) {
-                    throw new Error("element [data-bind='" + bindName + "'] can not be found");
+            option = option || {};
+            option.updateOnCreate = option.updateOnCreate !== false;
+            var scopeName = option.scope || 'document';
+            var namePrefix = option.namePrefix || '';
+            var objectNamePrefix = scopeName + '_' + namePrefix + '_';
+            var scope;
+            if (scopeName == 'document') {
+                scope = window.document;
+            } else {
+                scope = window.document.querySelector("[data-scope='" + scopeName + "']");
+                if (!scope) {
+                    throw new Error("scope [data-scope='" + scopeName + "'] can not be found");
                     return;
                 }
-                bindMulti(proxy, key, scope, elements, objectNamePrefix);
-                if (option.updateOnCreate) {
-                    eventManager.trigger(objectNamePrefix + key, 'change');
+            }
+
+            var proxy = {};
+
+            for (var key in sourceData) {
+                if (!sourceData.hasOwnProperty(key)) {
+                    continue;
                 }
-            })(proxy, key);
-        }
+                (function(proxy, key) {
+                    Object.defineProperty(proxy, key, {
+                        get: function() {
+                            return sourceData[key];
+                        },
+                        set: function(value) {
+                            sourceData[key] = value;
+                            eventManager.trigger(objectNamePrefix + key, 'change');
+                        },
+                        enumerable: true,
+                        configurable: true
+                    });
 
-        proxy.toPlainObject = function() {
-            return sourceData;
-        };
-        proxy.update = function(newData) {
-        };
+                    var bindName = namePrefix + key;
+                    var elements = scope.querySelectorAll("[data-bind='" + bindName + "']");
+                    if (elements.length == 0) {
+                        throw new Error("element [data-bind='" + bindName + "'] can not be found");
+                        return;
+                    }
+                    bindMulti(strategy, proxy, key, scope, elements, objectNamePrefix);
+                    if (option.updateOnCreate) {
+                        eventManager.trigger(objectNamePrefix + key, 'change');
+                    }
+                })(proxy, key);
+            }
 
-        return proxy;
+            proxy.toPlainObject = function() {
+                return sourceData;
+            };
+            proxy.update = function(newData) {
+            };
+
+            return proxy;
+        };
+        return Entity;
     };
 
+    var defaultEntity = factory(bindStrategy);
+
     defaultEntity.extendBindStrategy = function(customBindStrategy) {
+        var strategy = extend({}, bindStrategy);
         for (var tagName in customBindStrategy) {
             if (!customBindStrategy.hasOwnProperty(tagName)) {
                 continue;
             }
             if (typeof customBindStrategy[tagName] === 'function') {
-                if (bindStrategy[tagName]) {
+                if (strategy[tagName]) {
                     throw new Error("bind strategy on " + tagName + " already exists");
                 }
-                bindStrategy[tagName] = customBindStrategy[tagName];
+                strategy[tagName] = customBindStrategy[tagName];
             }
             if (typeof customBindStrategy[tagName] === 'object') {
-                bindStrategy[tagName] = bindStrategy[tagName] || {};
+                strategy[tagName] = strategy[tagName] || {};
                 for (var type in customBindStrategy[tagName]) {
                     if (!customBindStrategy[tagName].hasOwnProperty(type)) {
                         continue;
                     }
-                    if (bindStrategy[tagName][type]) {
+                    if (strategy[tagName][type]) {
                         throw new Error("bind strategy on " + tagName + "-" + type + " already exists");
                     }
-                    bindStrategy[tagName][type] = customBindStrategy[tagName][type];
+                    strategy[tagName][type] = customBindStrategy[tagName][type];
                 }
             }
         }
-        return defaultEntity;
+        return factory(strategy);
     };
 
     return defaultEntity;
