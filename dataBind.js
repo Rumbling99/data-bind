@@ -58,6 +58,9 @@ var Entity = function(eventManager, bindEvent, extend) {
                 element.value = proxy[key];
             });
             bindEvent(element, 'keyup', function() {
+                if (proxy[key] == element.value) {
+                    return;
+                }
                 proxy[key] = element.value;
             });
         },
@@ -72,16 +75,21 @@ var Entity = function(eventManager, bindEvent, extend) {
         },
         'input': {
             'text': function(eventManager, bindEvent, proxy, key, objectNamePrefix) {
-            var element = this;
+                var element = this;
+                var changeElementValue = function() {
+                    if (proxy[key] == element.value) {
+                        return;
+                    }
+                    proxy[key] = element.value;
+                };
                 eventManager.attach(objectNamePrefix + key, 'change', function() {
                     element.value = proxy[key];
                 });
-                bindEvent(element, 'keyup', function() {
-                    proxy[key] = element.value;
-                });
+                bindEvent(element, 'keyup', changeElementValue);
+                bindEvent(element, 'focus', changeElementValue);
             },
             'checkbox': function(eventManager, bindEvent, proxy, key, objectNamePrefix) {
-            var element = this;
+                var element = this;
                 eventManager.attach(objectNamePrefix + key, 'change', function() {
                     element.checked = proxy[key];
                 });
@@ -131,6 +139,7 @@ var Entity = function(eventManager, bindEvent, extend) {
 
             option = option || {};
             option.updateOnCreate = option.updateOnCreate !== false;
+            var excludeKeys = option.excludeKeys || [];
             var scopeName = option.scope || 'document';
             var namePrefix = option.namePrefix || '';
             var objectNamePrefix = scopeName + '_' + namePrefix + '_';
@@ -152,17 +161,35 @@ var Entity = function(eventManager, bindEvent, extend) {
                     continue;
                 }
                 (function(proxy, key) {
-                    Object.defineProperty(proxy, key, {
-                        get: function() {
-                            return sourceData[key];
-                        },
-                        set: function(value) {
-                            sourceData[key] = value;
-                            eventManager.trigger(objectNamePrefix + key, 'change');
-                        },
-                        enumerable: true,
-                        configurable: true
-                    });
+                    try {
+                        Object.defineProperty(proxy, key, {
+                            enumerable: true,
+                            configurable: true
+                        });
+                    } catch (e) {
+                        alert('此页面不能再您的浏览器运行，请使用 IE9+、Chrome或者Firefox浏览器打开。');
+                    }
+                    if (excludeKeys.indexOf(key) > -1) {
+                        Object.defineProperty(proxy, key, {
+                            get: function() {
+                                return sourceData[key];
+                            },
+                            set: function(value) {
+                                sourceData[key] = value;
+                            }
+                        });
+                        return;
+                    } else {
+                        Object.defineProperty(proxy, key, {
+                            get: function() {
+                                return sourceData[key];
+                            },
+                            set: function(value) {
+                                sourceData[key] = value;
+                                eventManager.trigger(objectNamePrefix + key, 'change');
+                            }
+                        });
+                    }
 
                     var bindName = namePrefix + key;
                     var elements = scope.querySelectorAll("[data-bind='" + bindName + "']");
@@ -177,7 +204,17 @@ var Entity = function(eventManager, bindEvent, extend) {
                 })(proxy, key);
             }
 
-            proxy.toPlainObject = function() {
+            proxy.toPlainObject = function(prefix) {
+                if (prefix) {
+                    var newObj = {};
+                    for ( var key in sourceData) {
+                        if (!sourceData.hasOwnProperty(key)) {
+                            continue;
+                        }
+                        newObj[prefix + '.' + key] = sourceData[key];
+                    }
+                    return newObj;
+                }
                 return sourceData;
             };
             proxy.update = function(newData) {
