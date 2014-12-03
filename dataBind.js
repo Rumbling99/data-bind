@@ -1,4 +1,17 @@
+try {
+    Object.defineProperty({}, 0, {
+        enumerable: true,
+        configurable: true
+    });
+} catch (e) {
+    throw new Error("your browser is not supported by 'databind', please use IE9+, Chrome or Firefox");
+}
+
 var Entity = function(eventManager, bindEvent, extend) {
+    var uid = (function() {
+        return Math.random().toString().substring(2, 17);
+    });
+
     /**
      * two-way bind on elements that has same bindName([data-bind='bindName'])
      * group elements by tagName, type, name and then pass them to bindGroup()
@@ -83,10 +96,14 @@ var Entity = function(eventManager, bindEvent, extend) {
                     proxy[key] = element.value;
                 };
                 eventManager.attach(objectNamePrefix + key, 'change', function() {
+                    if (proxy[key] == element.value) {
+                        return;
+                    }
                     element.value = proxy[key];
                 });
-                bindEvent(element, 'keyup', changeElementValue);
-                bindEvent(element, 'focus', changeElementValue);
+                bindEvent(element, 'input', changeElementValue);
+                // bindEvent(element, 'keyup', changeElementValue);
+                // bindEvent(element, 'focus', changeElementValue);
             },
             'checkbox': function(eventManager, bindEvent, proxy, key, objectNamePrefix) {
                 var element = this;
@@ -134,12 +151,16 @@ var Entity = function(eventManager, bindEvent, extend) {
 
     var factory = function(strategy) {
         var Entity = function(sourceData, option) {
-            //TODO: check sourceData is object
-            //TODO: check option is valid
+            if (typeof sourceData !== 'object') {
+                throw new Error("invalid source data");
+            }
+            if (typeof option !== 'object') {
+                throw new Error("invalid option");
+            }
 
             option = option || {};
             option.updateOnCreate = option.updateOnCreate !== false;
-            var excludeKeys = option.excludeKeys || [];
+            var bindCheck = option.bindCheck !== false;
             var scopeName = option.scope || 'document';
             var namePrefix = option.namePrefix || '';
             var objectNamePrefix = scopeName + '_' + namePrefix + '_';
@@ -161,15 +182,13 @@ var Entity = function(eventManager, bindEvent, extend) {
                     continue;
                 }
                 (function(proxy, key) {
-                    try {
-                        Object.defineProperty(proxy, key, {
-                            enumerable: true,
-                            configurable: true
-                        });
-                    } catch (e) {
-                        alert('此页面不能再您的浏览器运行，请使用 IE9+、Chrome或者Firefox浏览器打开。');
-                    }
-                    if (excludeKeys.indexOf(key) > -1) {
+                    var bindName = namePrefix + key;
+                    var elements = scope.querySelectorAll("[data-bind='" + bindName + "']");
+                    Object.defineProperty(proxy, key, {
+                        enumerable: true,
+                        configurable: true
+                    });
+                    if (elements.length == 0) {
                         Object.defineProperty(proxy, key, {
                             get: function() {
                                 return sourceData[key];
@@ -178,6 +197,9 @@ var Entity = function(eventManager, bindEvent, extend) {
                                 sourceData[key] = value;
                             }
                         });
+                        if (bindCheck) {
+                            throw new Error("element [data-bind='" + bindName + "'] can not be found");
+                        }
                         return;
                     } else {
                         Object.defineProperty(proxy, key, {
@@ -189,13 +211,6 @@ var Entity = function(eventManager, bindEvent, extend) {
                                 eventManager.trigger(objectNamePrefix + key, 'change');
                             }
                         });
-                    }
-
-                    var bindName = namePrefix + key;
-                    var elements = scope.querySelectorAll("[data-bind='" + bindName + "']");
-                    if (elements.length == 0) {
-                        throw new Error("element [data-bind='" + bindName + "'] can not be found");
-                        return;
                     }
                     bindMulti(strategy, proxy, key, scope, elements, objectNamePrefix);
                     if (option.updateOnCreate) {

@@ -7,31 +7,31 @@
 
 <body>
     <div data-scope="dialog">
-        <span data-bind="name"></span><br /><br />
-        <label>名称：</label><input type="text" data-bind="name"><br /><br />
-        <label>名称：</label><input type="text" data-bind="name"><br /><br />
+        <!-- <span data-bind="name"></span><br /><br /> -->
+        <label>名称：</label><input type="text" data-bind="di-name"><br /><br />
+        <label>名称：</label><input type="text" data-bind="di-name"><br /><br />
         <label>角色：</label>
-        <select data-bind="role">
+        <select data-bind="di-role">
             <option value='admin'>管理员</option>
             <option value='user'>普通用户</option>
         </select><br /><br />
         <label>角色：</label>
-        <select data-bind="role">
+        <select data-bind="di-role">
             <option value='admin'>管理员</option>
             <option value='user'>普通用户</option>
         </select><br /><br />
-        <label>介绍：</label><textarea data-bind="desc"></textarea><br /><br />
-        <label>介绍：</label><textarea data-bind="desc"></textarea><br /><br />
+        <label>介绍：</label><textarea data-bind="di-desc"></textarea><br /><br />
+        <label>介绍：</label><textarea data-bind="di-desc"></textarea><br /><br />
         <label>性别：</label>
-        <input type="radio" name="sex1" data-bind="sex" value="male">男
-        <input type="radio" name="sex1" data-bind="sex" value="female">女<br /><br />
+        <input type="radio" name="sex1" data-bind="di-sex" value="male">男
+        <input type="radio" name="sex1" data-bind="di-sex" value="female">女<br /><br />
         <label>性别：</label>
-        <input type="radio" name="sex2" data-bind="sex" value="male">男
-        <input type="radio" name="sex2" data-bind="sex" value="female">女<br /><br />
+        <input type="radio" name="sex2" data-bind="di-sex" value="male">男
+        <input type="radio" name="sex2" data-bind="di-sex" value="female">女<br /><br />
         <label>记住：</label>
-        <input type="checkbox" data-bind="remember"><br /><br />
+        <input type="checkbox" data-bind="di-remember"><br /><br />
         <label>记住：</label>
-        <input type="checkbox" data-bind="remember"><br /><br />
+        <input type="checkbox" data-bind="di-remember"><br /><br />
     </div>
 </body>
 
@@ -42,22 +42,27 @@
         role: 'user', 
         desc: 'a programmer', 
         sex: 'male', 
-        remember: true
+        remember: true,
+        id: ''
     };
 
     // var ientity = new Entity(i);
 
     var CustomEntity = Entity.extendBindStrategy({
-        'span': function(eventManager, bindEvent, proxy, key, objectNamePrefix) {
-            var element = this;
-            eventManager.attach(objectNamePrefix + key, 'change', function() {
-                element.innerHTML = proxy[key];
-            });
-        }
+        // 'span': function(eventManager, bindEvent, proxy, key, objectNamePrefix) {
+        //     var element = this;
+        //     eventManager.attach(objectNamePrefix + key, 'change', function() {
+        //         element.innerHTML = proxy[key];
+        //     });
+        // }
     });
 
-    var ientity = new CustomEntity(i);
-
+    var ientity = new CustomEntity(i, {
+        scope: 'dialog',
+        bindCheck: false,
+        namePrefix: 'di-'
+    });
+    
     ientity.name = 'Quan Li';
 </script>
 </html>
