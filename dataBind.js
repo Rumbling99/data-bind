@@ -16,7 +16,7 @@ var Entity = function(eventManager, bindEvent, extend) {
      * two-way bind on elements that has same bindName([data-bind='bindName'])
      * group elements by tagName, type, name and then pass them to bindGroup()
      */
-    var bindMulti = function(strategy, proxy, key, scope, elements, objectNamePrefix) {
+    var bindGroups = function(strategy, proxy, key, scope, elements, objectNamePrefix) {
         var groupMap = {};
         for (var i = 0, length = elements.length; i < length; i++) {
             var element = elements[i];
@@ -36,23 +36,55 @@ var Entity = function(eventManager, bindEvent, extend) {
             bindGroup(strategy, proxy, key, scope, groupMap[groupKey], objectNamePrefix);
         }
     };
+
     /**
      * two-way bind on non-group elements(input-text, textarea, select ...) 
      * or on a group of elements that has same name(input-radio ...)
      */
     var bindGroup = function(strategy, proxy, key, scope, elements, objectNamePrefix) {
-        var elementGroup;
+        // var elementGroup;
+                    // elementGroup = elementGroup || 
+                    //     scope.querySelectorAll("[name='" 
+                    //     + element.name + "'][data-bind='" 
+                    //     + element.getAttribute('data-bind') + "']");
+        // var groupBinded = false;
         var bindStrategy = strategy;
         for (var i = 0, elementLength = elements.length; i < elementLength; i++) {
             (function(element) {
                 var tagName = element.tagName.toLowerCase();
                 var type = element.type;
                 if (bindStrategy.hasOwnProperty(tagName)) {
-                    if (typeof bindStrategy[tagName] === 'function') {
-                        bindStrategy[tagName].call(element, eventManager, bindEvent, proxy, key, objectNamePrefix, scope, elementGroup);
+                    if (bindStrategy[tagName].boardcast) {
+                        /**
+                         * bind boardcast on entity only once
+                         */
+                        // if (!groupBinded) {
+                            // console.log('bind group ' + key);
+                            eventManager.attach(objectNamePrefix + key, 'change', function() {
+                                bindStrategy[tagName].boardcast.call(element, proxy, key, elements);
+                            });
+                        //     groupBinded = true;
+                        // }
+                        for (var j = 0; j < bindStrategy[tagName].event.length; j++) {
+                            bindEvent(element, bindStrategy[tagName].event[j], function() {
+                                bindStrategy[tagName].report.call(element, proxy, key, elements);
+                            });
+                        }
                     } else {
                         if (bindStrategy[tagName].hasOwnProperty(type)) {
-                            bindStrategy[tagName][type].call(element, eventManager, bindEvent, proxy, key, objectNamePrefix, scope, elementGroup);
+                                // console.log('p bind group ' + key);
+                            // if (!groupBinded) {
+                                // console.log('bind group ' + key);
+                                eventManager.attach(objectNamePrefix + key, 'change', function() {
+                                    bindStrategy[tagName][type].boardcast.call(element, proxy, key, elements);
+                                });
+                            //     groupBinded = true;
+                            // }
+                            for (var j = 0; j < bindStrategy[tagName][type].event.length; j++) {
+                                bindEvent(element, bindStrategy[tagName][type].event[j], function() {
+                                    bindStrategy[tagName][type].report.call(element, proxy, key, elements);
+                                });
+                            }
                         } else {
                             throw new Error("data bind on input-" + element.type + " is not supported");
                         }
@@ -65,87 +97,128 @@ var Entity = function(eventManager, bindEvent, extend) {
     };
 
     var bindStrategy = {
-        'textarea': function(eventManager, bindEvent, proxy, key, objectNamePrefix) {
-            var element = this;
-            eventManager.attach(objectNamePrefix + key, 'change', function() {
-                element.value = proxy[key];
-            });
-            bindEvent(element, 'keyup', function() {
-                if (proxy[key] == element.value) {
+        'textarea': {
+            event: ['input'],
+            report: function(proxy, key) {
+                if (proxy[key] == this.value) {
                     return;
                 }
-                proxy[key] = element.value;
-            });
+                proxy[key] = this.value;
+            },
+            boardcast: function(proxy, key) {
+                if (proxy[key] == this.value) {
+                    return;
+                }
+                this.value = proxy[key];
+            }
         },
-        'select': function(eventManager, bindEvent, proxy, key, objectNamePrefix) {
-            var element = this;
-            eventManager.attach(objectNamePrefix + key, 'change', function() {
-                element.value = proxy[key];
-            });
-            bindEvent(element, 'change', function() {
-                proxy[key] = element.value;
-            });
+        'select': {
+            event: ['change'],
+            report: function(proxy, key) {
+                if (proxy[key] == this.value) {
+                    return;
+                }
+                proxy[key] = this.value;
+            },
+            boardcast: function(proxy, key) {
+                if (proxy[key] == this.value) {
+                    return;
+                }
+                this.value = proxy[key];
+            }
         },
         'input': {
-            'text': function(eventManager, bindEvent, proxy, key, objectNamePrefix) {
-                var element = this;
-                var changeElementValue = function() {
-                    if (proxy[key] == element.value) {
+            'text': {
+                event: ['input', 'focus'],
+                report: function(proxy, key) {
+                    if (proxy[key] == this.value) {
                         return;
                     }
-                    proxy[key] = element.value;
-                };
-                eventManager.attach(objectNamePrefix + key, 'change', function() {
-                    if (proxy[key] == element.value) {
+                    proxy[key] = this.value;
+                },
+                boardcast: function(proxy, key) {
+                    if (proxy[key] == this.value) {
                         return;
                     }
-                    element.value = proxy[key];
-                });
-                bindEvent(element, 'input', changeElementValue);
-                // bindEvent(element, 'keyup', changeElementValue);
-                // bindEvent(element, 'focus', changeElementValue);
-            },
-            'checkbox': function(eventManager, bindEvent, proxy, key, objectNamePrefix) {
-                var element = this;
-                eventManager.attach(objectNamePrefix + key, 'change', function() {
-                    element.checked = proxy[key];
-                });
-                bindEvent(element, 'change', function() {
-                    proxy[key] = element.checked;
-                });
-            },
-            'radio': function(eventManager, bindEvent, proxy, key, objectNamePrefix, scope, elementGroup) {
-                var element = this;
-                /**
-                 * only bind once on entity
-                 */
-                if (!elementGroup) {
-                    elementGroup = elementGroup || 
-                        scope.querySelectorAll("[name='" 
-                        + element.name + "'][data-bind='" 
-                        + element.getAttribute('data-bind') + "']");
-                    eventManager.attach(objectNamePrefix + key, 'change', function() {
-                        for (var j = 0, groupLength = elementGroup.length; j < groupLength; j++) {
-                            if (proxy[key] === elementGroup[j].value) {
-                                elementGroup[j].checked = true
-                                break;
-                            }
-                        }
-                    });
+                    this.value = proxy[key];
                 }
+            },
+            'checkbox': {
+                event: ['change'],
+                report: function(proxy, key) {
+                    if (proxy[key] == this.checked) {
+                        return;
+                    }
+                    proxy[key] = this.checked;
+                },
+                boardcast: function(proxy, key) {
+                    if (proxy[key] == this.value) {
+                        return;
+                    }
+                    this.checked = proxy[key];
+                }
+            },
+            'radio': {
+                event: ['change'],
                 /**
                  * bind on each radio
                  */
-                bindEvent(element, 'change', function() {
-                    var value = '';
+                report: function(proxy, key, elementGroup) {
                     for (var j = 0, groupLength = elementGroup.length; j < groupLength; j++) {
                         if (elementGroup[j].checked == true) {
                             proxy[key] = elementGroup[j].value;
                             break;
                         }
                     }
-                });
-            }
+                },
+                /**
+                 * only bind once on entity
+                 */
+                boardcast: function(proxy, key, elementGroup) {
+                    for (var j = 0, groupLength = elementGroup.length; j < groupLength; j++) {
+                        if (proxy[key] === elementGroup[j].value) {
+                            elementGroup[j].checked = true
+                            break;
+                        }
+                    }
+                    this.checked = proxy[key];
+                }
+            },
+            
+            // 'radio': function(eventManager, bindEvent, proxy, key, objectNamePrefix, scope) {
+            //     var element = this;
+            //     var elementGroup;
+            //     /**
+            //      * only bind once on entity
+            //      */
+
+            //     if (!elementGroup) {
+            //         elementGroup = elementGroup || 
+            //             scope.querySelectorAll("[name='" 
+            //             + element.name + "'][data-bind='" 
+            //             + element.getAttribute('data-bind') + "']");
+            //         eventManager.attach(objectNamePrefix + key, 'change', function() {
+            //             for (var j = 0, groupLength = elementGroup.length; j < groupLength; j++) {
+            //                 if (proxy[key] === elementGroup[j].value) {
+            //                     elementGroup[j].checked = true
+            //                     break;
+            //                 }
+            //             }
+            //         });
+            //     }
+            //     /**
+            //      * bind on each radio
+            //      */
+            //     bindEvent(element, 'change', function() {
+            //         var value = '';
+            //         for (var j = 0, groupLength = elementGroup.length; j < groupLength; j++) {
+            //             if (elementGroup[j].checked == true) {
+            //                 proxy[key] = elementGroup[j].value;
+            //                 break;
+            //             }
+            //         }
+            //     });
+            // }
         }
     };
 
@@ -212,7 +285,7 @@ var Entity = function(eventManager, bindEvent, extend) {
                             }
                         });
                     }
-                    bindMulti(strategy, proxy, key, scope, elements, objectNamePrefix);
+                    bindGroups(strategy, proxy, key, scope, elements, objectNamePrefix);
                     if (option.updateOnCreate) {
                         eventManager.trigger(objectNamePrefix + key, 'change');
                     }
