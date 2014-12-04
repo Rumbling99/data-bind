@@ -8,9 +8,45 @@ try {
 }
 
 var Entity = function(eventManager, bindEvent, extend) {
-    var uid = (function() {
+    var uid = function() {
         return Math.random().toString().substring(2, 17);
-    });
+    };
+
+  // Helper function to correctly set up the prototype chain, for subclasses.
+  // Similar to `goog.inherits`, but uses a hash of prototype properties and
+  // class properties to be extended.
+  var extendProps = function(protoProps, staticProps) {
+    var parent = this;
+    var child;
+
+    // The constructor function for the new subclass is either defined by you
+    // (the "constructor" property in your `extend` definition), or defaulted
+    // by us to simply call the parent's constructor.
+    if (protoProps && protoProps != null && protoProps.hasOwnProperty('constructor')) {
+      child = protoProps.constructor;
+    } else {
+      child = function(){ return parent.apply(this, arguments); };
+    }
+
+    // Add static properties to the constructor function, if supplied.
+    extend(child, parent, staticProps);
+
+    // Set the prototype chain to inherit from `parent`, without calling
+    // `parent`'s constructor function.
+    var Surrogate = function(){ this.constructor = child; };
+    Surrogate.prototype = parent.prototype;
+    child.prototype = new Surrogate;
+
+    // Add prototype properties (instance properties) to the subclass,
+    // if supplied.
+    if (protoProps) extend(child.prototype, protoProps);
+
+    // Set a convenience property in case the parent's prototype is needed
+    // later.
+    child.__super__ = parent.prototype;
+
+    return child;
+  };
 
     /**
      * two-way bind on elements that has same bindName([data-bind='bindName'])
@@ -42,11 +78,6 @@ var Entity = function(eventManager, bindEvent, extend) {
      * or on a group of elements that has same name(input-radio ...)
      */
     var bindGroup = function(strategy, proxy, key, scope, elements, objectNamePrefix) {
-        // var elementGroup;
-                    // elementGroup = elementGroup || 
-                    //     scope.querySelectorAll("[name='" 
-                    //     + element.name + "'][data-bind='" 
-                    //     + element.getAttribute('data-bind') + "']");
         var boardcastBinded = false;
         var bindStrategy = strategy;
         for (var i = 0, elementLength = elements.length; i < elementLength; i++) {
@@ -195,7 +226,7 @@ var Entity = function(eventManager, bindEvent, extend) {
             if (typeof sourceData !== 'object') {
                 throw new Error("invalid source data");
             }
-            if (typeof option !== 'object') {
+            if (option && typeof option !== 'object') {
                 throw new Error("invalid option");
             }
 
@@ -215,8 +246,6 @@ var Entity = function(eventManager, bindEvent, extend) {
                     return;
                 }
             }
-
-            var proxy = {};
 
             for (var key in sourceData) {
                 if (!sourceData.hasOwnProperty(key)) {
@@ -257,10 +286,10 @@ var Entity = function(eventManager, bindEvent, extend) {
                     if (option.updateOnCreate) {
                         eventManager.trigger(objectNamePrefix + key, 'change');
                     }
-                })(proxy, key);
+                })(this, key);
             }
 
-            proxy.toPlainObject = function(prefix) {
+            this.toPlainObject = function(prefix) {
                 if (prefix) {
                     var newObj = {};
                     for ( var key in sourceData) {
@@ -273,11 +302,15 @@ var Entity = function(eventManager, bindEvent, extend) {
                 }
                 return sourceData;
             };
-            proxy.update = function(newData) {
+
+            this.update = function(newData) {
+                console.log('update');
             };
 
-            return proxy;
         };
+
+        Entity.extend = extendProps;
+
         return Entity;
     };
 
@@ -289,13 +322,12 @@ var Entity = function(eventManager, bindEvent, extend) {
             if (!customBindStrategy.hasOwnProperty(tagName)) {
                 continue;
             }
-            if (typeof customBindStrategy[tagName] === 'function') {
+            if (typeof customBindStrategy[tagName].boardcast) {
                 if (strategy[tagName]) {
                     throw new Error("bind strategy on " + tagName + " already exists");
                 }
                 strategy[tagName] = customBindStrategy[tagName];
-            }
-            if (typeof customBindStrategy[tagName] === 'object') {
+            } else {
                 strategy[tagName] = strategy[tagName] || {};
                 for (var type in customBindStrategy[tagName]) {
                     if (!customBindStrategy[tagName].hasOwnProperty(type)) {

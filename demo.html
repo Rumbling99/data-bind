@@ -59,12 +59,24 @@
         }
     });
 
-    var ientity = new CustomEntity(i, {
+    ACustomEntity = CustomEntity.extend({
+        save: function() {
+            console.log(this.toPlainObject());
+        },
+        update: function() {
+            console.log('update22');
+        }
+    });
+
+    var ientity = new ACustomEntity(i, {
         scope: 'dialog',
         bindCheck: false,
         namePrefix: 'di-'
     });
 
     ientity.name = 'Quan Li';
+
+
+
 </script>
 </html>
