@@ -7,30 +7,30 @@
 
 <body>
     <div data-scope="dialog">
-        <!-- <span data-bind="name"></span><br /><br /> -->
-        <label>名称：</label><input type="text" data-bind="di-name"><br /><br />
-        <label>名称：</label><input type="text" data-bind="di-name"><br /><br />
-        <label>角色：</label>
+        <span data-bind="di-name"></span><br /><br />
+        <label>name: </label><input type="text" data-bind="di-name"><br /><br />
+        <label>name: </label><input type="text" data-bind="di-name"><br /><br />
+        <label>role: </label>
         <select data-bind="di-role">
-            <option value='admin'>管理员</option>
-            <option value='user'>普通用户</option>
+            <option value='admin'>admin</option>
+            <option value='user'>user</option>
         </select><br /><br />
-        <label>角色：</label>
+        <label>role: </label>
         <select data-bind="di-role">
-            <option value='admin'>管理员</option>
-            <option value='user'>普通用户</option>
+            <option value='admin'>admin</option>
+            <option value='user'>user</option>
         </select><br /><br />
-        <label>介绍：</label><textarea data-bind="di-desc"></textarea><br /><br />
-        <label>介绍：</label><textarea data-bind="di-desc"></textarea><br /><br />
-        <label>性别：</label>
-        <input type="radio" name="sex1" data-bind="di-sex" value="male">男
-        <input type="radio" name="sex1" data-bind="di-sex" value="female">女<br /><br />
-        <label>性别：</label>
-        <input type="radio" name="sex2" data-bind="di-sex" value="male">男
-        <input type="radio" name="sex2" data-bind="di-sex" value="female">女<br /><br />
-        <label>记住：</label>
+        <label>description: </label><textarea data-bind="di-desc"></textarea><br /><br />
+        <label>description: </label><textarea data-bind="di-desc"></textarea><br /><br />
+        <label>sex: </label>
+        <label><input type="radio" name="sex1" data-bind="di-sex" value="male">male</label>
+        <label><input type="radio" name="sex1" data-bind="di-sex" value="female">female</label><br /><br />
+        <label>sex: </label>
+        <label><input type="radio" name="sex2" data-bind="di-sex" value="male">male</label>
+        <label><input type="radio" name="sex2" data-bind="di-sex" value="female">female</label><br /><br />
+        <label>remember: </label>
         <input type="checkbox" data-bind="di-remember"><br /><br />
-        <label>记住：</label>
+        <label>remember: </label>
         <input type="checkbox" data-bind="di-remember"><br /><br />
     </div>
 </body>
@@ -49,16 +49,17 @@
     // var ientity = new Entity(i);
 
     var CustomEntity = Entity.extendBindStrategy({
-        // 'span': function(eventManager, bindEvent, proxy, key, objectNamePrefix) {
-        //     var element = this;
-        //     eventManager.attach(objectNamePrefix + key, 'change', function() {
-        //         element.innerHTML = proxy[key];
-        //     });
-        // }
+        'span': {
+            boardcast: function(proxy, key) {
+                if (proxy[key] == this.innerHTML) {
+                    return;
+                }
+                this.innerHTML = proxy[key];
+            }
+        }
     });
 
-    // var ientity = new CustomEntity(i, {
-    var ientity = new Entity(i, {
+    var ientity = new CustomEntity(i, {
         scope: 'dialog',
         bindCheck: false,
         namePrefix: 'di-'

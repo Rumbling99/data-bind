@@ -16,7 +16,7 @@ var Entity = function(eventManager, bindEvent, extend) {
      * two-way bind on elements that has same bindName([data-bind='bindName'])
      * group elements by tagName, type, name and then pass them to bindGroup()
      */
-    var bindGroups = function(strategy, proxy, key, scope, elements, objectNamePrefix) {
+    var bindByKey = function(strategy, proxy, key, scope, elements, objectNamePrefix) {
         var groupMap = {};
         for (var i = 0, length = elements.length; i < length; i++) {
             var element = elements[i];
@@ -47,7 +47,7 @@ var Entity = function(eventManager, bindEvent, extend) {
                     //     scope.querySelectorAll("[name='" 
                     //     + element.name + "'][data-bind='" 
                     //     + element.getAttribute('data-bind') + "']");
-        // var groupBinded = false;
+        var boardcastBinded = false;
         var bindStrategy = strategy;
         for (var i = 0, elementLength = elements.length; i < elementLength; i++) {
             (function(element) {
@@ -55,36 +55,39 @@ var Entity = function(eventManager, bindEvent, extend) {
                 var type = element.type;
                 if (bindStrategy.hasOwnProperty(tagName)) {
                     if (bindStrategy[tagName].boardcast) {
-                        /**
-                         * bind boardcast on entity only once
-                         */
-                        // if (!groupBinded) {
-                            // console.log('bind group ' + key);
-                            eventManager.attach(objectNamePrefix + key, 'change', function() {
-                                bindStrategy[tagName].boardcast.call(element, proxy, key, elements);
-                            });
-                        //     groupBinded = true;
-                        // }
-                        for (var j = 0; j < bindStrategy[tagName].event.length; j++) {
-                            bindEvent(element, bindStrategy[tagName].event[j], function() {
-                                bindStrategy[tagName].report.call(element, proxy, key, elements);
-                            });
-                        }
-                    } else {
-                        if (bindStrategy[tagName].hasOwnProperty(type)) {
-                                // console.log('p bind group ' + key);
-                            // if (!groupBinded) {
-                                // console.log('bind group ' + key);
-                                eventManager.attach(objectNamePrefix + key, 'change', function() {
-                                    bindStrategy[tagName][type].boardcast.call(element, proxy, key, elements);
-                                });
-                            //     groupBinded = true;
-                            // }
-                            for (var j = 0; j < bindStrategy[tagName][type].event.length; j++) {
-                                bindEvent(element, bindStrategy[tagName][type].event[j], function() {
-                                    bindStrategy[tagName][type].report.call(element, proxy, key, elements);
+                        if (bindStrategy[tagName].report) {
+                            for (var j = 0; j < bindStrategy[tagName].event.length; j++) {
+                                bindEvent(element, bindStrategy[tagName].event[j], function() {
+                                    bindStrategy[tagName].report.call(element, proxy, key, elements);
                                 });
                             }
+                        }
+                        /**
+                         * if share boardcast, bind boardcast on entity only once
+                         */
+                        if (bindStrategy[tagName].shareBoardcast && boardcastBinded) {
+                            return;
+                        }
+                        eventManager.attach(objectNamePrefix + key, 'change', function() {
+                            bindStrategy[tagName].boardcast.call(element, proxy, key, elements);
+                        });
+                        boardcastBinded = true;
+                    } else {
+                        if (bindStrategy[tagName].hasOwnProperty(type)) {
+                            if (bindStrategy[tagName][type].report) {
+                                for (var j = 0; j < bindStrategy[tagName][type].event.length; j++) {
+                                    bindEvent(element, bindStrategy[tagName][type].event[j], function() {
+                                        bindStrategy[tagName][type].report.call(element, proxy, key, elements);
+                                    });
+                                }
+                            }
+                            if (bindStrategy[tagName][type].shareBoardcast && boardcastBinded) {
+                                return;
+                            }
+                            eventManager.attach(objectNamePrefix + key, 'change', function() {
+                                bindStrategy[tagName][type].boardcast.call(element, proxy, key, elements);
+                            });
+                            boardcastBinded = true;
                         } else {
                             throw new Error("data bind on input-" + element.type + " is not supported");
                         }
@@ -181,44 +184,9 @@ var Entity = function(eventManager, bindEvent, extend) {
                             break;
                         }
                     }
-                    this.checked = proxy[key];
-                }
-            },
-            
-            // 'radio': function(eventManager, bindEvent, proxy, key, objectNamePrefix, scope) {
-            //     var element = this;
-            //     var elementGroup;
-            //     /**
-            //      * only bind once on entity
-            //      */
-
-            //     if (!elementGroup) {
-            //         elementGroup = elementGroup || 
-            //             scope.querySelectorAll("[name='" 
-            //             + element.name + "'][data-bind='" 
-            //             + element.getAttribute('data-bind') + "']");
-            //         eventManager.attach(objectNamePrefix + key, 'change', function() {
-            //             for (var j = 0, groupLength = elementGroup.length; j < groupLength; j++) {
-            //                 if (proxy[key] === elementGroup[j].value) {
-            //                     elementGroup[j].checked = true
-            //                     break;
-            //                 }
-            //             }
-            //         });
-            //     }
-            //     /**
-            //      * bind on each radio
-            //      */
-            //     bindEvent(element, 'change', function() {
-            //         var value = '';
-            //         for (var j = 0, groupLength = elementGroup.length; j < groupLength; j++) {
-            //             if (elementGroup[j].checked == true) {
-            //                 proxy[key] = elementGroup[j].value;
-            //                 break;
-            //             }
-            //         }
-            //     });
-            // }
+                },
+                shareBoardcast: true
+            }
         }
     };
 
@@ -285,7 +253,7 @@ var Entity = function(eventManager, bindEvent, extend) {
                             }
                         });
                     }
-                    bindGroups(strategy, proxy, key, scope, elements, objectNamePrefix);
+                    bindByKey(strategy, proxy, key, scope, elements, objectNamePrefix);
                     if (option.updateOnCreate) {
                         eventManager.trigger(objectNamePrefix + key, 'change');
                     }
