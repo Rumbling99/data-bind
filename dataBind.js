@@ -7,52 +7,108 @@ try {
     throw new Error("your browser is not supported by 'databind', please use IE9+, Chrome or Firefox");
 }
 
-var Entity = function(eventManager, bindEvent, extend) {
-    var uid = function() {
-        return Math.random().toString().substring(2, 17);
+var Entity = function() {
+    // Helpers
+    // -------
+
+    // Helper function to correctly set up the prototype chain, for subclasses.
+    // Similar to `goog.inherits`, but uses a hash of prototype properties and
+    // class properties to be extended.
+    var extendProps = function(protoProps, staticProps) {
+        var parent = this;
+        var child;
+
+        // The constructor function for the new subclass is either defined by you
+        // (the "constructor" property in your `extend` definition), or defaulted
+        // by us to simply call the parent's constructor.
+        if (protoProps && protoProps != null && protoProps.hasOwnProperty('constructor')) {
+            child = protoProps.constructor;
+        } else {
+            child = function(){ return parent.apply(this, arguments); };
+        }
+
+        // Add static properties to the constructor function, if supplied.
+        extend(child, parent, staticProps);
+
+        // Set the prototype chain to inherit from `parent`, without calling
+        // `parent`'s constructor function.
+        var Surrogate = function(){ this.constructor = child; };
+        Surrogate.prototype = parent.prototype;
+        child.prototype = new Surrogate;
+
+        // Add prototype properties (instance properties) to the subclass,
+        // if supplied.
+        if (protoProps) extend(child.prototype, protoProps);
+
+        // Set a convenience property in case the parent's prototype is needed
+        // later.
+        child.__super__ = parent.prototype;
+
+        return child;
     };
 
-  // Helper function to correctly set up the prototype chain, for subclasses.
-  // Similar to `goog.inherits`, but uses a hash of prototype properties and
-  // class properties to be extended.
-  var extendProps = function(protoProps, staticProps) {
-    var parent = this;
-    var child;
+    var eventManager = function() {
+        var eventManager = {};
+        var objects = {};
+        eventManager.attach = function(objectName, event, handler) {
+            if (!objects.hasOwnProperty(objectName)) {
+                objects[objectName] = {};
+            }
+            if (!objects[objectName].hasOwnProperty(event)) {
+                objects[objectName][event] = [];
+            }
+            objects[objectName][event].push(handler);
+        };
+        eventManager.trigger = function(objectName, event) {
+            if (!objects.hasOwnProperty(objectName)) {
+                return;
+            }
+            if (!objects[objectName].hasOwnProperty(event)) {
+                return;
+            }
+            var handlers = objects[objectName][event];
+            for (var i = 0, length = handlers.length; i < length; i++) {
+                handlers[i].call();
+            }
+        };
+        return eventManager;
+    }();
 
-    // The constructor function for the new subclass is either defined by you
-    // (the "constructor" property in your `extend` definition), or defaulted
-    // by us to simply call the parent's constructor.
-    if (protoProps && protoProps != null && protoProps.hasOwnProperty('constructor')) {
-      child = protoProps.constructor;
-    } else {
-      child = function(){ return parent.apply(this, arguments); };
-    }
+    var bindEvent = function(element, event, handler) {
+        if (element.addEventListener) {
+            element.addEventListener(event, handler, false);
+        } else {
+            element.attachEvent('on' + event, handler);
+        }
+    };
 
-    // Add static properties to the constructor function, if supplied.
-    extend(child, parent, staticProps);
+    var extend = function(target) {
+        if (!!target && typeof target !== 'object') {
+            return target;
+        }
+        var source, key;
+        for (var i = 1, length = arguments.length; i < length; i++) {
+            source = arguments[i];
+            for (key in source) {
+                target[key] = source[key];
+            }
+        }
+        return target;
+    };
 
-    // Set the prototype chain to inherit from `parent`, without calling
-    // `parent`'s constructor function.
-    var Surrogate = function(){ this.constructor = child; };
-    Surrogate.prototype = parent.prototype;
-    child.prototype = new Surrogate;
-
-    // Add prototype properties (instance properties) to the subclass,
-    // if supplied.
-    if (protoProps) extend(child.prototype, protoProps);
-
-    // Set a convenience property in case the parent's prototype is needed
-    // later.
-    child.__super__ = parent.prototype;
-
-    return child;
-  };
+    var idCounter = 0;
+    var uid = function() {
+        var id = ++idCounter + '';
+        return Math.random().toString().substring(2, 17) + id;
+    };
+    // -------
+    // Helpers end
 
     /**
      * two-way bind on elements that has same bindName([data-bind='bindName'])
      * group elements by tagName, type, name and then pass them to bindGroup()
      */
-    var bindByKey = function(strategy, proxy, key, scope, elements, objectNamePrefix) {
+    var bindByKey = function(strategy, proxy, key, elements, objectNamePrefix) {
         var groupMap = {};
         for (var i = 0, length = elements.length; i < length; i++) {
             var element = elements[i];
@@ -69,7 +125,7 @@ var Entity = function(eventManager, bindEvent, extend) {
             if (!groupMap.hasOwnProperty(groupKey)) {
                 continue;
             }
-            bindGroup(strategy, proxy, key, scope, groupMap[groupKey], objectNamePrefix);
+            bindGroup(strategy, proxy, key, groupMap[groupKey], objectNamePrefix);
         }
     };
 
@@ -77,7 +133,7 @@ var Entity = function(eventManager, bindEvent, extend) {
      * two-way bind on non-group elements(input-text, textarea, select ...) 
      * or on a group of elements that has same name(input-radio ...)
      */
-    var bindGroup = function(strategy, proxy, key, scope, elements, objectNamePrefix) {
+    var bindGroup = function(strategy, proxy, key, elements, objectNamePrefix) {
         var boardcastBinded = false;
         var bindStrategy = strategy;
         for (var i = 0, elementLength = elements.length; i < elementLength; i++) {
@@ -223,73 +279,80 @@ var Entity = function(eventManager, bindEvent, extend) {
 
     var factory = function(strategy) {
         var Entity = function(sourceData, option) {
-            if (typeof sourceData !== 'object') {
-                throw new Error("invalid source data");
-            }
-            if (option && typeof option !== 'object') {
-                throw new Error("invalid option");
-            }
+            this.initialize.apply(this, arguments);
+        };
 
-            option = option || {};
-            option.updateOnCreate = option.updateOnCreate !== false;
-            var bindCheck = option.bindCheck !== false;
-            var scopeName = option.scope || 'document';
-            var namePrefix = option.namePrefix || '';
-            var objectNamePrefix = scopeName + '_' + namePrefix + '_';
-            var scope;
-            if (scopeName == 'document') {
-                scope = window.document;
-            } else {
-                scope = window.document.querySelector("[data-scope='" + scopeName + "']");
-                if (!scope) {
-                    throw new Error("scope [data-scope='" + scopeName + "'] can not be found");
-                    return;
+        extend(Entity.prototype, {
+            bind: function(sourceData, option) {
+                if (typeof sourceData !== 'object') {
+                    throw new Error("invalid source data");
                 }
-            }
-
-            for (var key in sourceData) {
-                if (!sourceData.hasOwnProperty(key)) {
-                    continue;
+                if (option && typeof option !== 'object') {
+                    throw new Error("invalid option");
                 }
-                (function(proxy, key) {
-                    var bindName = namePrefix + key;
-                    var elements = scope.querySelectorAll("[data-bind='" + bindName + "']");
-                    Object.defineProperty(proxy, key, {
-                        enumerable: true,
-                        configurable: true
-                    });
-                    if (elements.length == 0) {
-                        Object.defineProperty(proxy, key, {
-                            get: function() {
-                                return sourceData[key];
-                            },
-                            set: function(value) {
-                                sourceData[key] = value;
-                            }
-                        });
-                        if (bindCheck) {
-                            throw new Error("element [data-bind='" + bindName + "'] can not be found");
-                        }
+                option = option || {};
+                option.updateOnCreate = option.updateOnCreate !== false;
+                var bindCheck = option.bindCheck !== false;
+                var scopeName = option.scope || 'document';
+                var namePrefix = option.namePrefix || '';
+                var objectNamePrefix = scopeName + '_' + namePrefix + '_';
+                var scope;
+                if (scopeName == 'document') {
+                    scope = window.document;
+                } else {
+                    scope = window.document.querySelector("[data-scope='" + scopeName + "']");
+                    if (!scope) {
+                        throw new Error("scope [data-scope='" + scopeName + "'] can not be found");
                         return;
-                    } else {
-                        Object.defineProperty(proxy, key, {
-                            get: function() {
-                                return sourceData[key];
-                            },
-                            set: function(value) {
-                                sourceData[key] = value;
-                                eventManager.trigger(objectNamePrefix + key, 'change');
-                            }
-                        });
                     }
-                    bindByKey(strategy, proxy, key, scope, elements, objectNamePrefix);
-                    if (option.updateOnCreate) {
-                        eventManager.trigger(objectNamePrefix + key, 'change');
-                    }
-                })(this, key);
-            }
+                }
 
-            this.toPlainObject = function(prefix) {
+                for (var key in sourceData) {
+                    if (!sourceData.hasOwnProperty(key)) {
+                        continue;
+                    }
+                    (function(proxy, key) {
+                        var bindName = namePrefix + key;
+                        var elements = scope.querySelectorAll("[data-bind='" + bindName + "']");
+                        Object.defineProperty(proxy, key, {
+                            enumerable: true,
+                            configurable: true
+                        });
+                        if (elements.length == 0) {
+                            Object.defineProperty(proxy, key, {
+                                get: function() {
+                                    return sourceData[key];
+                                },
+                                set: function(value) {
+                                    sourceData[key] = value;
+                                }
+                            });
+                            if (bindCheck) {
+                                throw new Error("element [data-bind='" + bindName + "'] can not be found");
+                            }
+                            return;
+                        } else {
+                            Object.defineProperty(proxy, key, {
+                                get: function() {
+                                    return sourceData[key];
+                                },
+                                set: function(value) {
+                                    sourceData[key] = value;
+                                    eventManager.trigger(objectNamePrefix + key, 'change');
+                                }
+                            });
+                        }
+                        bindByKey(strategy, proxy, key, elements, objectNamePrefix);
+                        if (option.updateOnCreate) {
+                            eventManager.trigger(objectNamePrefix + key, 'change');
+                        }
+                    })(this, key);
+                }
+            },
+            initialize: function(sourceData, option){
+                this.bind(sourceData, option);
+            },
+            toPlainObject: function(prefix) {
                 if (prefix) {
                     var newObj = {};
                     for ( var key in sourceData) {
@@ -301,13 +364,11 @@ var Entity = function(eventManager, bindEvent, extend) {
                     return newObj;
                 }
                 return sourceData;
-            };
-
-            this.update = function(newData) {
+            },
+            update: function(newData) {
                 console.log('update');
-            };
-
-        };
+            }
+        });
 
         Entity.extend = extendProps;
 
@@ -344,61 +405,5 @@ var Entity = function(eventManager, bindEvent, extend) {
     };
 
     return defaultEntity;
-}(
-/**
- * dependency: EventManager
- */
-function() {
-    var eventManager = {};
-    var objects = {};
-    eventManager.attach = function(objectName, event, handler) {
-        if (!objects.hasOwnProperty(objectName)) {
-            objects[objectName] = {};
-        }
-        if (!objects[objectName].hasOwnProperty(event)) {
-            objects[objectName][event] = [];
-        }
-        objects[objectName][event].push(handler);
-    };
-    eventManager.trigger = function(objectName, event) {
-        if (!objects.hasOwnProperty(objectName)) {
-            return;
-        }
-        if (!objects[objectName].hasOwnProperty(event)) {
-            return;
-        }
-        var handlers = objects[objectName][event];
-        for (var i = 0, length = handlers.length; i < length; i++) {
-            handlers[i].call();
-        }
-    };
-    return eventManager;
-}(),
-/**
- * dependency: bindEvent() function(html)
- */
-function(element, event, handler) {
-    if (element.addEventListener) {
-        element.addEventListener(event, handler, false);
-    } else {
-        element.attachEvent('on' + event, handler);
-    }
-},
-/**
- * dependency: extend() function
- */
-function(target) {
-    if (!!target && typeof target !== 'object') {
-        return target;
-    }
-    var source, key;
-    for (var i = 1, length = arguments.length; i < length; i++) {
-        source = arguments[i];
-        for (key in source) {
-            target[key] = source[key];
-        }
-    }
-    return target;
-}
-);
+}();
 
