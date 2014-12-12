@@ -99,7 +99,7 @@ var Entity = function() {
     var idCounter = 0;
     var uid = function() {
         var id = ++idCounter + '';
-        return Math.random().toString().substring(2, 17) + id;
+        return Math.random().toString().substring(2, 17) + '_' + id;
     };
     // -------
     // Helpers end
@@ -290,6 +290,7 @@ var Entity = function() {
                 if (option && typeof option !== 'object') {
                     throw new Error("invalid option");
                 }
+                this.sourceData = sourceData;
                 option = option || {};
                 option.updateOnCreate = option.updateOnCreate !== false;
                 var bindCheck = option.bindCheck !== false;
@@ -353,13 +354,14 @@ var Entity = function() {
                 this.bind(sourceData, option);
             },
             toPlainObject: function(prefix) {
+                var sourceData = this.sourceData;
                 if (prefix) {
                     var newObj = {};
-                    for ( var key in sourceData) {
+                    for (var key in sourceData) {
                         if (!sourceData.hasOwnProperty(key)) {
                             continue;
                         }
-                        newObj[prefix + '.' + key] = sourceData[key];
+                        newObj[prefix + key] = sourceData[key];
                     }
                     return newObj;
                 }

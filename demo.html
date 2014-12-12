@@ -60,10 +60,12 @@
     });
 
     ACustomEntity = CustomEntity.extend({
-        // initialize: function(a, b) {
-            // console.log(a);
-            // console.log(b);
-        // },
+        initialize: function(sourceData, option) {
+            if (option.aaa) {
+                this.aaa = option.aaa;
+            }
+            this.bind(sourceData, option);
+        },
         save: function() {
             console.log(this.toPlainObject());
         },
