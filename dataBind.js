@@ -196,7 +196,11 @@ var Entity = function() {
                 proxy[key] = this.value;
             },
             boardcast: function(proxy, key) {
-                if (proxy[key] == this.value) {
+                if (proxy[key] === 0 || proxy[key] === '') {
+                    if (proxy[key] === this.value) {
+                        return;
+                    }
+                } else if (proxy[key] == this.value) {
                     return;
                 }
                 this.value = proxy[key];
@@ -227,7 +231,11 @@ var Entity = function() {
                     proxy[key] = this.value;
                 },
                 boardcast: function(proxy, key) {
-                    if (proxy[key] == this.value) {
+                    if (proxy[key] === 0 || proxy[key] === '') {
+                        if (proxy[key] === this.value) {
+                            return;
+                        }
+                    } else if (proxy[key] == this.value) {
                         return;
                     }
                     this.value = proxy[key];

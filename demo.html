@@ -51,7 +51,11 @@
     var CustomEntity = Entity.extendBindStrategy({
         'span': {
             boardcast: function(proxy, key) {
-                if (proxy[key] == this.innerHTML) {
+                if (proxy[key] === 0 || proxy[key] === '') {
+                    if (proxy[key] === this.innerHTML) {
+                        return;
+                    }
+                } else if (proxy[key] == this.innerHTML) {
                     return;
                 }
                 this.innerHTML = proxy[key];
