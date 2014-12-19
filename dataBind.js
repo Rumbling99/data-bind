@@ -190,7 +190,11 @@ var Entity = function() {
         'textarea': {
             event: ['input'],
             report: function(proxy, key) {
-                if (proxy[key] == this.value) {
+                if (this.value === 0 || this.value === '') {
+                    if (proxy[key] === this.value) {
+                        return;
+                    }
+                } else if (proxy[key] == this.value) {
                     return;
                 }
                 proxy[key] = this.value;
@@ -225,7 +229,11 @@ var Entity = function() {
             'text': {
                 event: ['input', 'focus'],
                 report: function(proxy, key) {
-                    if (proxy[key] == this.value) {
+                    if (this.value === 0 || this.value === '') {
+                        if (proxy[key] === this.value) {
+                            return;
+                        }
+                    } else if (proxy[key] == this.value) {
                         return;
                     }
                     proxy[key] = this.value;
