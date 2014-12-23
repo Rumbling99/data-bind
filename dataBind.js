@@ -200,6 +200,10 @@ var Entity = function() {
                 proxy[key] = this.value;
             },
             boardcast: function(proxy, key) {
+                if (proxy[key] === null) {
+                    this.value = "";
+                    return;
+                }
                 if (proxy[key] === 0 || proxy[key] === '') {
                     if (proxy[key] === this.value) {
                         return;
@@ -239,6 +243,10 @@ var Entity = function() {
                     proxy[key] = this.value;
                 },
                 boardcast: function(proxy, key) {
+                    if (proxy[key] === null) {
+                        this.value = "";
+                        return;
+                    }
                     if (proxy[key] === 0 || proxy[key] === '') {
                         if (proxy[key] === this.value) {
                             return;
