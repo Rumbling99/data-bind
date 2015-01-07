@@ -396,7 +396,6 @@ var Entity = function() {
                 return sourceData;
             },
             update: function(newData) {
-                console.log('update');
             }
         });
 
