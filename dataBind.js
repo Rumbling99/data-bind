@@ -71,6 +71,9 @@ var Entity = function() {
                 handlers[i].call();
             }
         };
+        eventManager.detachAll = function(objectName) {
+            objects[objectName] = {};
+        };
         return eventManager;
     }();
 
@@ -134,6 +137,7 @@ var Entity = function() {
      * or on a group of elements that has same name(input-radio ...)
      */
     var bindGroup = function(strategy, proxy, key, elements, objectNamePrefix) {
+        eventManager.detachAll(objectNamePrefix + key);
         var boardcastBinded = false;
         var bindStrategy = strategy;
         for (var i = 0, elementLength = elements.length; i < elementLength; i++) {
