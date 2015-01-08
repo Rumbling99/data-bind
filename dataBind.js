@@ -112,6 +112,7 @@ var Entity = function() {
      * group elements by tagName, type, name and then pass them to bindGroup()
      */
     var bindByKey = function(strategy, proxy, key, elements, objectNamePrefix) {
+        eventManager.detachAll(objectNamePrefix + key);
         var groupMap = {};
         for (var i = 0, length = elements.length; i < length; i++) {
             var element = elements[i];
@@ -137,7 +138,6 @@ var Entity = function() {
      * or on a group of elements that has same name(input-radio ...)
      */
     var bindGroup = function(strategy, proxy, key, elements, objectNamePrefix) {
-        eventManager.detachAll(objectNamePrefix + key);
         var boardcastBinded = false;
         var bindStrategy = strategy;
         for (var i = 0, elementLength = elements.length; i < elementLength; i++) {
